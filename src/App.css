@@ -1,0 +1,127 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f6fa; color: #222; }
+
+.loading { display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 1.2rem; color: #888; }
+
+/* 로그인 */
+.login-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f5f6fa; }
+.login-card { background: #fff; border-radius: 16px; padding: 48px 40px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.login-card h1 { font-size: 2rem; margin-bottom: 8px; }
+.login-card p { color: #666; margin-bottom: 32px; }
+.login-btn { background: #2196F3; color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+.login-btn:hover { background: #1976D2; }
+
+/* 레이아웃 */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+.header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 0 20px; height: 56px; border-bottom: 1px solid #e8e8e8; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 16px; }
+.app-title { font-size: 1.1rem; font-weight: 700; }
+.month-picker { border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px; font-size: 0.9rem; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-name { font-size: 0.9rem; color: #555; }
+.logout-btn { background: none; border: 1px solid #ddd; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+
+/* 네비 */
+.nav { display: flex; background: #fff; border-bottom: 1px solid #e8e8e8; }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border: none; background: none; cursor: pointer; font-size: 0.75rem; color: #888; border-bottom: 2px solid transparent; }
+.nav-btn.active { color: #2196F3; border-bottom-color: #2196F3; }
+.nav-btn span:first-child { font-size: 1.1rem; }
+
+/* 메인 */
+.main { flex: 1; padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+.page h2 { font-size: 1.2rem; margin-bottom: 16px; }
+.page h3 { font-size: 1rem; margin: 20px 0 12px; }
+
+/* 카드 */
+.card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.summary-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.card-label { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
+.card-value { font-size: 1.2rem; font-weight: 700; }
+
+/* 인포박스 */
+.info-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+.info-box.green { background: #e8f5e9; color: #2e7d32; }
+.info-box.blue { background: #e3f2fd; color: #1565c0; }
+
+/* 진행바 */
+.cat-list { display: flex; flex-direction: column; gap: 12px; }
+.cat-item { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.cat-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px; }
+.progress-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+
+/* 테이블 */
+.table-wrap { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 16px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 8px; border-bottom: 2px solid #eee; font-size: 0.85rem; color: #666; }
+td { padding: 8px; border-bottom: 1px solid #f0f0f0; }
+td input { width: 100%; border: 1px solid #eee; border-radius: 6px; padding: 6px 8px; font-size: 0.9rem; }
+.analysis-table td, .analysis-table th { padding: 10px 8px; }
+
+/* 지출 */
+.expense-form { margin-bottom: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: #555; }
+label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 0.9rem; }
+.expense-list { display: flex; flex-direction: column; gap: 10px; }
+.expense-item { background: #fff; border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.exp-left { display: flex; align-items: center; gap: 12px; }
+.exp-date { font-size: 0.85rem; color: #888; min-width: 36px; }
+.exp-cat { font-size: 0.9rem; font-weight: 600; }
+.exp-memo { font-size: 0.8rem; color: #888; }
+.exp-right { display: flex; align-items: center; gap: 10px; }
+.exp-amount { font-weight: 700; color: #F44336; }
+.exp-remaining { font-size: 0.78rem; color: #4CAF50; }
+.exp-remaining.over { color: #F44336; }
+
+/* 설정 */
+.settings-section { margin-bottom: 20px; }
+.field-label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; margin-bottom: 16px; }
+.field-label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 1rem; max-width: 240px; }
+.hint { font-size: 0.82rem; color: #888; margin-bottom: 16px; }
+.cat-edit-big { background: #f9f9f9; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.cat-edit-mid { margin-left: 16px; margin-top: 8px; }
+.cat-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.cat-input-big { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px; font-weight: 600; }
+.cat-input-mid { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 5px 10px; }
+.cat-input-small { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-size: 0.85rem; }
+.indent { color: #aaa; }
+.indent2 { color: #ccc; font-size: 0.8rem; }
+.small { margin-left: 16px; }
+
+/* 버튼 */
+.btn-primary { background: #2196F3; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+.btn-primary:hover { background: #1976D2; }
+.btn-primary.full { width: 100%; }
+.btn-outline { background: #fff; color: #2196F3; border: 1px solid #2196F3; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+.btn-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1rem; padding: 2px 6px; }
+.btn-del:hover { color: #F44336; }
+.btn-add { background: none; border: 1px dashed #ccc; color: #888; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-top: 8px; }
+.btn-add-mid { background: none; border: none; color: #888; font-size: 0.8rem; cursor: pointer; margin-top: 4px; padding: 2px 8px; }
+.btn-add-small { background: none; border: none; color: #aaa; font-size: 0.78rem; cursor: pointer; margin: 4px 0 4px 24px; }
+
+/* 기타 */
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.btn-row { display: flex; gap: 8px; }
+.total-row { text-align: right; font-size: 1rem; padding: 8px; }
+.empty { color: #aaa; text-align: center; padding: 40px 0; }
+.over { color: #F44336 !important; }
+
+/* 반응형 */
+@media (max-width: 480px) {
+  .card-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .main { padding: 12px; }
+}
+
+/* 결제수단 */
+.pay-select { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 0.9rem; }
+.exp-sub { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+.exp-payment { font-size: 0.78rem; color: #2196F3; background: #e3f2fd; padding: 2px 6px; border-radius: 4px; }
+.exp-memo { font-size: 0.78rem; color: #888; }
+.payment-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.payment-item { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 10px 14px; border-radius: 8px; }
+.payment-add-row { display: flex; gap: 8px; }
+.payment-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
+.saved-badge { font-size: 0.85rem; color: #4CAF50; font-weight: 600; }
