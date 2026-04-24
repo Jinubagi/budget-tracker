@@ -130,3 +130,7 @@ label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; fon
 .exp-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .exp-tab { flex: 1; padding: 10px; border: 2px solid #eee; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.9rem; color: #888; }
 .exp-tab.active { border-color: #2196F3; color: #2196F3; font-weight: 600; }
+
+/* 월급 기간 */
+.month-wrap { display: flex; align-items: center; gap: 8px; }
+.period-label { font-size: 0.8rem; color: #888; white-space: nowrap; }

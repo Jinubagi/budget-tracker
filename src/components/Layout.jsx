@@ -4,6 +4,7 @@ import Budget from "./Budget";
 import Expense from "./Expense";
 import Analysis from "./Analysis";
 import Settings from "./Settings";
+import { getPayPeriod } from "../utils";
 
 const TABS = [
   { id: "dashboard", label: "대시보드", icon: "📊" },
@@ -20,8 +21,10 @@ export default function Layout({ user, onLogout }) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
+  const period = getPayPeriod(month);
+
   const renderTab = () => {
-    const props = { user, month };
+    const props = { user, month, period };
     if (tab === "dashboard") return <Dashboard {...props} />;
     if (tab === "budget") return <Budget {...props} />;
     if (tab === "expense") return <Expense {...props} />;
@@ -35,12 +38,15 @@ export default function Layout({ user, onLogout }) {
         <div className="header-left">
           <span className="app-title">💰 가계부</span>
           {tab !== "settings" && (
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="month-picker"
-            />
+            <div className="month-wrap">
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="month-picker"
+              />
+              <span className="period-label">{period.label}</span>
+            </div>
           )}
         </div>
         <div className="header-right">

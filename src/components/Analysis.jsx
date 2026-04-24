@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ref, get } from "firebase/database";
 import { db } from "../firebase";
+import { inPeriod } from "../utils";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -13,15 +14,25 @@ const isSaving = (category) => {
   return big.includes("저축") || big.includes("적금") || big.includes("투자");
 };
 
-export default function Analysis({ user, month }) {
+export default function Analysis({ user, month, period }) {
   const uid = user.uid;
-  const [expenses, setExpenses] = useState([]);
+  const [allExpenses, setAllExpenses] = useState([]);
   const [budgets, setBudgets] = useState([]);
 
   useEffect(() => {
     const load = async () => {
+      const [y, m] = month.split("-").map(Number);
+      const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+
       const eSnap = await get(ref(db, `users/${uid}/expenses/${month}`));
-      setExpenses(Object.values(eSnap.val() || {}));
+      const nextSnap = await get(ref(db, `users/${uid}/expenses/${nextMonth}`));
+
+      const all = [
+        ...Object.values(eSnap.val() || {}),
+        ...Object.values(nextSnap.val() || {}),
+      ];
+      setAllExpenses(all);
+
       const bSnap = await get(ref(db, `users/${uid}/budgets/${month}`));
       setBudgets(Object.values(bSnap.val() || {}));
     };
@@ -30,23 +41,22 @@ export default function Analysis({ user, month }) {
 
   const fmt = (n) => n.toLocaleString("ko-KR") + "원";
 
-  // 지출 / 저축 분리
+  // 월급 기간 필터
+  const expenses = allExpenses.filter((e) => inPeriod(e.date, period));
+
   const spendingList = expenses.filter((e) => !isSaving(e.category));
   const savingList = expenses.filter((e) => isSaving(e.category));
 
-  // 카테고리별 집계 (지출만)
   const catMap = {};
   spendingList.forEach((e) => {
     catMap[e.category] = (catMap[e.category] || 0) + e.amount;
   });
 
-  // 저축 카테고리별 집계
   const savingMap = {};
   savingList.forEach((e) => {
     savingMap[e.category] = (savingMap[e.category] || 0) + e.amount;
   });
 
-  // 결제수단별 집계 (지출만)
   const payMap = {};
   spendingList.forEach((e) => {
     const key = e.payment || "미분류";
@@ -72,13 +82,12 @@ export default function Analysis({ user, month }) {
 
   return (
     <div className="page">
-      <h2>{month} 분석</h2>
+      <h2>{period.label} 분석</h2>
 
       {expenses.length === 0 ? (
         <p className="empty">분석할 데이터가 없어요</p>
       ) : (
         <>
-          {/* 요약 */}
           <div className="card-grid" style={{ marginBottom: 16 }}>
             <div className="summary-card" style={{ borderTop: "4px solid #F44336" }}>
               <div className="card-label">총 지출</div>
@@ -90,7 +99,6 @@ export default function Analysis({ user, month }) {
             </div>
           </div>
 
-          {/* 지출 분석 */}
           {pieData.length > 0 && (
             <>
               <div className="card">
@@ -124,7 +132,6 @@ export default function Analysis({ user, month }) {
             </>
           )}
 
-          {/* 결제수단별 */}
           {payPieData.length > 0 && (
             <div className="card">
               <h3>💳 결제수단별 지출</h3>
@@ -149,7 +156,6 @@ export default function Analysis({ user, month }) {
             </div>
           )}
 
-          {/* 저축 분석 */}
           {savingPieData.length > 0 && (
             <>
               <div className="card">
@@ -183,7 +189,6 @@ export default function Analysis({ user, month }) {
             </>
           )}
 
-          {/* 카테고리 상세표 */}
           <div className="card">
             <h3>카테고리 상세</h3>
             <table className="analysis-table">

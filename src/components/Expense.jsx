@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { ref, get, push, remove } from "firebase/database";
 import { db } from "../firebase";
+import { inPeriod } from "../utils";
 
 const isSaving = (category) => {
   const big = (category || "").split(">")[0].trim();
   return big.includes("저축") || big.includes("적금") || big.includes("투자");
 };
 
-export default function Expense({ user, month }) {
+export default function Expense({ user, month, period }) {
   const uid = user.uid;
-  const [expenses, setExpenses] = useState([]);
+  const [allExpenses, setAllExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [payments, setPayments] = useState([]);
   const [form, setForm] = useState({
@@ -23,11 +24,18 @@ export default function Expense({ user, month }) {
   const [tab, setTab] = useState("지출");
 
   const load = async () => {
+    // 기간이 두 달에 걸칠 수 있어서 현재 월 + 다음 달 모두 로드
+    const [y, m] = month.split("-").map(Number);
+    const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+
     const snap = await get(ref(db, `users/${uid}/expenses/${month}`));
-    const data = snap.val() || {};
-    const list = Object.entries(data).map(([k, v]) => ({ _key: k, ...v }));
-    list.sort((a, b) => b.date.localeCompare(a.date));
-    setExpenses(list);
+    const nextSnap = await get(ref(db, `users/${uid}/expenses/${nextMonth}`));
+
+    const thisList = Object.entries(snap.val() || {}).map(([k, v]) => ({ _key: k, _month: month, ...v }));
+    const nextList = Object.entries(nextSnap.val() || {}).map(([k, v]) => ({ _key: k, _month: nextMonth, ...v }));
+
+    const all = [...thisList, ...nextList].sort((a, b) => b.date.localeCompare(a.date));
+    setAllExpenses(all);
 
     const catSnap = await get(ref(db, `users/${uid}/categories`));
     setCategories(Object.values(catSnap.val() || {}));
@@ -44,16 +52,22 @@ export default function Expense({ user, month }) {
   const submit = async () => {
     const rawAmount = Number(form.amount.replace(/,/g, ""));
     if (!rawAmount || !form.category) return alert("카테고리와 금액을 입력하세요");
-    await push(ref(db, `users/${uid}/expenses/${month}`), {
-      ...form,
+
+    // 입력한 날짜의 월에 저장
+    const expMonth = form.date.slice(0, 7);
+    await push(ref(db, `users/${uid}/expenses/${expMonth}`), {
+      date: form.date,
+      category: form.category,
+      payment: form.payment,
+      memo: form.memo,
       amount: rawAmount,
     });
     setForm({ date: form.date, category: "", payment: "", memo: "", amount: "" });
     load();
   };
 
-  const del = async (key) => {
-    await remove(ref(db, `users/${uid}/expenses/${month}/${key}`));
+  const del = async (key, expMonth) => {
+    await remove(ref(db, `users/${uid}/expenses/${expMonth}/${key}`));
     load();
   };
 
@@ -61,21 +75,16 @@ export default function Expense({ user, month }) {
 
   const handleAmountChange = (val) => {
     const raw = val.replace(/,/g, "").replace(/[^0-9]/g, "");
-    const formatted = raw ? Number(raw).toLocaleString("ko-KR") : "";
-    setForm({ ...form, amount: formatted });
+    setForm({ ...form, amount: raw ? Number(raw).toLocaleString("ko-KR") : "" });
   };
+
+  // 월급 기간 내 항목만 필터
+  const expenses = allExpenses.filter((e) => inPeriod(e.date, period));
 
   const spentMap = {};
   expenses.forEach((e) => {
     spentMap[e.category] = (spentMap[e.category] || 0) + e.amount;
   });
-
-  const catOptions = categories.flatMap((big) =>
-    (big.subs || []).flatMap((mid) =>
-      (mid.subs || []).map((small) => `${big.name} > ${mid.name} > ${small.name}`)
-        .concat([`${big.name} > ${mid.name}`])
-    ).concat([big.name])
-  );
 
   const filteredExpenses = expenses.filter((e) =>
     tab === "저축" ? isSaving(e.category) : !isSaving(e.category)
@@ -84,9 +93,16 @@ export default function Expense({ user, month }) {
   const totalSpending = expenses.filter((e) => !isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
   const totalSaving = expenses.filter((e) => isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
 
+  const catOptions = categories.flatMap((big) =>
+    (big.subs || []).flatMap((mid) =>
+      (mid.subs || []).map((small) => `${big.name} > ${mid.name} > ${small.name}`)
+        .concat([`${big.name} > ${mid.name}`])
+    ).concat([big.name])
+  );
+
   return (
     <div className="page">
-      <h2>{month} 지출/저축</h2>
+      <h2>{period.label} 지출/저축</h2>
 
       <div className="expense-form card">
         <h3>내역 추가</h3>
@@ -127,7 +143,6 @@ export default function Expense({ user, month }) {
         <button onClick={submit} className="btn-primary full">추가</button>
       </div>
 
-      {/* 지출/저축 탭 */}
       <div className="exp-tabs">
         <button onClick={() => setTab("지출")} className={`exp-tab ${tab === "지출" ? "active" : ""}`}>
           💸 지출 {fmt(totalSpending)}원
@@ -138,7 +153,7 @@ export default function Expense({ user, month }) {
       </div>
 
       {filteredExpenses.length === 0 ? (
-        <p className="empty">{tab === "저축" ? "이번 달 저축 내역이 없어요" : "이번 달 지출 내역이 없어요"}</p>
+        <p className="empty">{tab === "저축" ? "이번 기간 저축 내역이 없어요" : "이번 기간 지출 내역이 없어요"}</p>
       ) : (
         <div className="expense-list">
           {filteredExpenses.map((e) => {
@@ -166,7 +181,7 @@ export default function Expense({ user, month }) {
                       잔액 {fmt(bud - spent)}원
                     </span>
                   )}
-                  <button onClick={() => del(e._key)} className="btn-del">✕</button>
+                  <button onClick={() => del(e._key, e._month)} className="btn-del">✕</button>
                 </div>
               </div>
             );
