@@ -125,3 +125,8 @@ label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; fon
 .payment-add-row { display: flex; gap: 8px; }
 .payment-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
 .saved-badge { font-size: 0.85rem; color: #4CAF50; font-weight: 600; }
+
+/* 지출/저축 탭 */
+.exp-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.exp-tab { flex: 1; padding: 10px; border: 2px solid #eee; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.9rem; color: #888; }
+.exp-tab.active { border-color: #2196F3; color: #2196F3; font-weight: 600; }

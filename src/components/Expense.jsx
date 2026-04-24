@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { ref, get, push, remove } from "firebase/database";
 import { db } from "../firebase";
 
+const isSaving = (category) => {
+  const big = (category || "").split(">")[0].trim();
+  return big.includes("저축") || big.includes("적금") || big.includes("투자");
+};
+
 export default function Expense({ user, month }) {
   const uid = user.uid;
   const [expenses, setExpenses] = useState([]);
@@ -15,6 +20,7 @@ export default function Expense({ user, month }) {
     amount: "",
   });
   const [budgets, setBudgets] = useState([]);
+  const [tab, setTab] = useState("지출");
 
   const load = async () => {
     const snap = await get(ref(db, `users/${uid}/expenses/${month}`));
@@ -71,12 +77,19 @@ export default function Expense({ user, month }) {
     ).concat([big.name])
   );
 
+  const filteredExpenses = expenses.filter((e) =>
+    tab === "저축" ? isSaving(e.category) : !isSaving(e.category)
+  );
+
+  const totalSpending = expenses.filter((e) => !isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
+  const totalSaving = expenses.filter((e) => isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
+
   return (
     <div className="page">
-      <h2>{month} 지출</h2>
+      <h2>{month} 지출/저축</h2>
 
       <div className="expense-form card">
-        <h3>지출 추가</h3>
+        <h3>내역 추가</h3>
         <div className="form-grid">
           <label>날짜
             <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
@@ -111,17 +124,27 @@ export default function Expense({ user, month }) {
             <input value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="메모 (선택)" />
           </label>
         </div>
-        <button onClick={submit} className="btn-primary full">지출 추가</button>
+        <button onClick={submit} className="btn-primary full">추가</button>
       </div>
 
-      <h3>지출 내역</h3>
-      {expenses.length === 0 ? (
-        <p className="empty">지출 내역이 없어요</p>
+      {/* 지출/저축 탭 */}
+      <div className="exp-tabs">
+        <button onClick={() => setTab("지출")} className={`exp-tab ${tab === "지출" ? "active" : ""}`}>
+          💸 지출 {fmt(totalSpending)}원
+        </button>
+        <button onClick={() => setTab("저축")} className={`exp-tab ${tab === "저축" ? "active" : ""}`}>
+          💜 저축 {fmt(totalSaving)}원
+        </button>
+      </div>
+
+      {filteredExpenses.length === 0 ? (
+        <p className="empty">{tab === "저축" ? "이번 달 저축 내역이 없어요" : "이번 달 지출 내역이 없어요"}</p>
       ) : (
         <div className="expense-list">
-          {expenses.map((e) => {
+          {filteredExpenses.map((e) => {
             const bud = budgets.find((b) => b.category === e.category)?.amount;
             const spent = spentMap[e.category] || 0;
+            const saving = isSaving(e.category);
             return (
               <div key={e._key} className="expense-item">
                 <div className="exp-left">
@@ -135,8 +158,10 @@ export default function Expense({ user, month }) {
                   </div>
                 </div>
                 <div className="exp-right">
-                  <span className="exp-amount">-{fmt(e.amount)}원</span>
-                  {bud && (
+                  <span className="exp-amount" style={{ color: saving ? "#9C27B0" : "#F44336" }}>
+                    {saving ? "+" : "-"}{fmt(e.amount)}원
+                  </span>
+                  {bud && !saving && (
                     <span className={`exp-remaining ${spent > bud ? "over" : ""}`}>
                       잔액 {fmt(bud - spent)}원
                     </span>
