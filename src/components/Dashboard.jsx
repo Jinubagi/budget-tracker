@@ -59,7 +59,7 @@ export default function Dashboard({ user, month }) {
 
       {savable > 0 && (
         <div className="info-box green">
-          💡 예산 설정 후 <strong>{fmt(savable)}</strong>을 저축할 수 있어요
+          💡 예산 설정 후 <strong>{fmt(savable)}</strong>이 남아요.
         </div>
       )}
 
