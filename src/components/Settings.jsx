@@ -35,9 +35,17 @@ const DEFAULT_CATEGORIES = [
 
 const DEFAULT_PAYMENTS = ["현금", "체크카드", "신용카드", "계좌이체"];
 
+const toNum = (str) => Number(String(str).replace(/,/g, "")) || 0;
+const toFmt = (n) => (n === 0 ? "" : Number(n).toLocaleString("ko-KR"));
+const handleNumInput = (val) => {
+  const raw = val.replace(/,/g, "").replace(/[^0-9]/g, "");
+  return raw ? Number(raw).toLocaleString("ko-KR") : "";
+};
+
 export default function Settings({ user }) {
   const uid = user.uid;
   const [template, setTemplate] = useState({ salary: 0, budgets: [] });
+  const [salaryInput, setSalaryInput] = useState("");
   const [categories, setCategories] = useState([]);
   const [payments, setPayments] = useState([]);
   const [newPayment, setNewPayment] = useState("");
@@ -48,7 +56,10 @@ export default function Settings({ user }) {
   useEffect(() => {
     const load = async () => {
       const tSnap = await get(ref(db, `users/${uid}/template`));
-      if (tSnap.val()) setTemplate(tSnap.val());
+      if (tSnap.val()) {
+        setTemplate(tSnap.val());
+        setSalaryInput(toFmt(tSnap.val().salary));
+      }
 
       const cSnap = await get(ref(db, `users/${uid}/categories`));
       if (cSnap.val()) {
@@ -74,7 +85,9 @@ export default function Settings({ user }) {
   }, [uid]);
 
   const saveTemplate = async () => {
-    await set(ref(db, `users/${uid}/template`), template);
+    const updated = { ...template, salary: toNum(salaryInput) };
+    await set(ref(db, `users/${uid}/template`), updated);
+    setTemplate(updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -113,7 +126,7 @@ export default function Settings({ user }) {
   const removeBudgetRow = (i) => setTemplate({ ...template, budgets: template.budgets.filter((_, idx) => idx !== i) });
   const updateBudget = (i, field, val) => {
     const b = [...template.budgets];
-    b[i] = { ...b[i], [field]: field === "amount" ? Number(val) : val };
+    b[i] = { ...b[i], [field]: field === "amount" ? toNum(val) : val };
     setTemplate({ ...template, budgets: b });
   };
 
@@ -159,7 +172,13 @@ export default function Settings({ user }) {
         </div>
         <p className="hint">변경 시 이전 달 예산에는 영향 없이 다음 달부터 적용됩니다</p>
         <label className="field-label">월급 (원)
-          <input type="number" value={template.salary} onChange={(e) => setTemplate({ ...template, salary: Number(e.target.value) })} />
+          <input
+            type="text"
+            value={salaryInput}
+            onChange={(e) => setSalaryInput(handleNumInput(e.target.value))}
+            onFocus={(e) => e.target.select()}
+            placeholder="0"
+          />
         </label>
         <h4>카테고리별 기본 예산</h4>
         <table>
@@ -171,7 +190,15 @@ export default function Settings({ user }) {
                   <input list="tpl-cats" value={b.category} onChange={(e) => updateBudget(i, "category", e.target.value)} placeholder="카테고리" />
                   <datalist id="tpl-cats">{catOptions.map((c) => <option key={c} value={c} />)}</datalist>
                 </td>
-                <td><input type="number" value={b.amount} onChange={(e) => updateBudget(i, "amount", e.target.value)} /></td>
+                <td>
+                  <input
+                    type="text"
+                    value={b.amount === 0 ? "" : Number(b.amount).toLocaleString("ko-KR")}
+                    onChange={(e) => updateBudget(i, "amount", e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="0"
+                  />
+                </td>
                 <td><button onClick={() => removeBudgetRow(i)} className="btn-del">✕</button></td>
               </tr>
             ))}

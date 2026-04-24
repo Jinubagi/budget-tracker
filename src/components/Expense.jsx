@@ -36,10 +36,11 @@ export default function Expense({ user, month }) {
   useEffect(() => { load(); }, [uid, month]);
 
   const submit = async () => {
-    if (!form.amount || !form.category) return alert("카테고리와 금액을 입력하세요");
+    const rawAmount = Number(form.amount.replace(/,/g, ""));
+    if (!rawAmount || !form.category) return alert("카테고리와 금액을 입력하세요");
     await push(ref(db, `users/${uid}/expenses/${month}`), {
       ...form,
-      amount: Number(form.amount),
+      amount: rawAmount,
     });
     setForm({ date: form.date, category: "", payment: "", memo: "", amount: "" });
     load();
@@ -51,6 +52,12 @@ export default function Expense({ user, month }) {
   };
 
   const fmt = (n) => Number(n).toLocaleString("ko-KR");
+
+  const handleAmountChange = (val) => {
+    const raw = val.replace(/,/g, "").replace(/[^0-9]/g, "");
+    const formatted = raw ? Number(raw).toLocaleString("ko-KR") : "";
+    setForm({ ...form, amount: formatted });
+  };
 
   const spentMap = {};
   expenses.forEach((e) => {
@@ -92,7 +99,13 @@ export default function Expense({ user, month }) {
             </select>
           </label>
           <label>금액 (원)
-            <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+            <input
+              type="text"
+              value={form.amount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              placeholder="0"
+            />
           </label>
           <label style={{ gridColumn: "1 / -1" }}>메모
             <input value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="메모 (선택)" />

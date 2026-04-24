@@ -47,15 +47,12 @@ export default function Budget({ user, month }) {
     if (tpl?.budgets) setBudgets(tpl.budgets);
   };
 
-  const addRow = () => {
-    setBudgets([...budgets, { category: "", amount: 0 }]);
-  };
-
+  const addRow = () => setBudgets([...budgets, { category: "", amount: 0 }]);
   const removeRow = (i) => setBudgets(budgets.filter((_, idx) => idx !== i));
 
   const update = (i, field, val) => {
     const next = [...budgets];
-    next[i] = { ...next[i], [field]: field === "amount" ? Number(val) : val };
+    next[i] = { ...next[i], [field]: field === "amount" ? Number(val.replace(/,/g, "")) : val };
     setBudgets(next);
   };
 
@@ -107,9 +104,11 @@ export default function Budget({ user, month }) {
                 </td>
                 <td>
                   <input
-                    type="number"
-                    value={b.amount}
+                    type="text"
+                    value={b.amount === 0 ? "" : fmt(b.amount)}
                     onChange={(e) => update(i, "amount", e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="0"
                   />
                 </td>
                 <td>
