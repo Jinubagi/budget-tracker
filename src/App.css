@@ -162,3 +162,5 @@ label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; fon
 .filter-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; font-size: 0.82rem; color: #888; }
 .filter-btn.active { background: #2196F3; color: #fff; border-color: #2196F3; }
 .pct-badge { font-size: 0.78rem; font-weight: 600; }
+
+.multi-row-card { border: 1px solid #eee; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
