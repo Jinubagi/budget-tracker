@@ -17,16 +17,13 @@ export default function Expense({ user, month, period }) {
   const [payments, setPayments] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [listTab, setListTab] = useState("지출");
-  const [inputMode, setInputMode] = useState("quick"); // quick | multi | ai
+  const [inputMode, setInputMode] = useState("quick");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
   const fileRef = useRef();
 
-  // 퀵 입력
   const today = new Date().toISOString().slice(0, 10);
   const [quick, setQuick] = useState({ date: today, bigCat: "", subCat: "", payment: "", memo: "", amount: "" });
-
-  // 여러개 입력
   const [rows, setRows] = useState([{ ...EMPTY_ROW, date: today }]);
 
   const load = async () => {
@@ -71,7 +68,6 @@ export default function Expense({ user, month, period }) {
     return true;
   };
 
-  // 퀵 입력 제출
   const submitQuick = async () => {
     const ok = await saveOne(quick);
     if (!ok) return alert("카테고리와 금액을 입력하세요");
@@ -79,7 +75,6 @@ export default function Expense({ user, month, period }) {
     load();
   };
 
-  // 여러개 제출
   const submitMulti = async () => {
     const valid = rows.filter((r) => r.bigCat && r.amount);
     if (!valid.length) return alert("최소 1개 이상 입력하세요");
@@ -120,7 +115,6 @@ export default function Expense({ user, month, period }) {
     reader.onload = async () => {
       const base64 = reader.result.split(",")[1];
       const mediaType = file.type;
-
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -175,19 +169,20 @@ export default function Expense({ user, month, period }) {
     load();
   };
 
-  // 카테 드롭다운 컴포넌트
+  // 카테고리 드롭다운
   const CatSelect = ({ bigVal, subVal, onBigChange, onSubChange }) => {
     const bigObj = categories.find((c) => c.name === bigVal);
+    const subs = (bigObj?.subs || []).map((s) => typeof s === "string" ? s : s.name);
     return (
       <div className="cat-select-wrap">
         <select value={bigVal} onChange={(e) => { onBigChange(e.target.value); onSubChange(""); }} className="cat-select">
           <option value="">대카테고리</option>
           {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
         </select>
-        {bigObj?.subs?.length > 0 && (
+        {subs.length > 0 && (
           <select value={subVal} onChange={(e) => onSubChange(e.target.value)} className="cat-select">
             <option value="">하위카테고리</option>
-            {bigObj.subs.map((s) => <option key={s} value={s}>{s}</option>)}
+            {subs.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
       </div>
@@ -216,7 +211,7 @@ export default function Expense({ user, month, period }) {
               <input type="text" value={quick.amount} onChange={(e) => setQuick({ ...quick, amount: handleAmt(e.target.value) })} onFocus={(e) => e.target.select()} placeholder="0" />
             </label>
             <label style={{ gridColumn: "1 / -1" }}>카테고리
-              <CatSelect bigVal={quick.bigCat} subVal={quick.subCat} onBigChange={(v) => setQuick({ ...quick, bigCat: v })} onSubChange={(v) => setQuick({ ...quick, subCat: v })} />
+              <CatSelect bigVal={quick.bigCat} subVal={quick.subCat} onBigChange={(v) => setQuick({ ...quick, bigCat: v, subCat: "" })} onSubChange={(v) => setQuick({ ...quick, subCat: v })} />
             </label>
             <label>결제수단
               <select value={quick.payment} onChange={(e) => setQuick({ ...quick, payment: e.target.value })} className="pay-select">
@@ -239,12 +234,7 @@ export default function Expense({ user, month, period }) {
             <table className="multi-table">
               <thead>
                 <tr>
-                  <th>날짜</th>
-                  <th>카테고리</th>
-                  <th>금액</th>
-                  <th>결제수단</th>
-                  <th>메모</th>
-                  <th></th>
+                  <th>날짜</th><th>카테고리</th><th>금액</th><th>결제수단</th><th>메모</th><th></th>
                 </tr>
               </thead>
               <tbody>
