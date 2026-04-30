@@ -3,34 +3,14 @@ import { ref, get, set } from "firebase/database";
 import { db } from "../firebase";
 
 const DEFAULT_CATEGORIES = [
-  {
-    name: "식비",
-    subs: [
-      { name: "식재료", subs: ["마트", "온라인쇼핑"] },
-      { name: "외식", subs: ["점심", "저녁", "카페"] },
-      { name: "배달", subs: [] },
-    ],
-  },
-  {
-    name: "교통",
-    subs: [
-      { name: "대중교통", subs: ["버스", "지하철"] },
-      { name: "차량", subs: ["주유", "주차", "보험"] },
-    ],
-  },
-  {
-    name: "주거",
-    subs: [
-      { name: "월세/관리비", subs: [] },
-      { name: "생활용품", subs: [] },
-      { name: "인테리어", subs: [] },
-    ],
-  },
-  { name: "통신", subs: [{ name: "휴대폰", subs: [] }, { name: "인터넷", subs: [] }] },
-  { name: "의료/건강", subs: [{ name: "병원", subs: [] }, { name: "약국", subs: [] }, { name: "운동", subs: [] }] },
-  { name: "여가", subs: [{ name: "문화/취미", subs: [] }, { name: "여행", subs: [] }, { name: "구독", subs: [] }] },
-  { name: "저축/투자", subs: [{ name: "저축", subs: [] }, { name: "투자", subs: [] }] },
-  { name: "기타", subs: [] },
+  { name: "식비", subs: ["식재료", "외식", "배달", "카페"] },
+  { name: "교통", subs: ["대중교통", "주유", "주차", "택시"] },
+  { name: "주거", subs: ["월세/관리비", "생활용품", "인테리어"] },
+  { name: "통신", subs: ["휴대폰", "인터넷", "구독서비스"] },
+  { name: "의료/건강", subs: ["병원", "약국", "운동"] },
+  { name: "여가", subs: ["문화/취미", "여행", "외출"] },
+  { name: "저축/투자", subs: ["저축", "투자", "적금"] },
+  { name: "기타", subs: ["기타"] },
 ];
 
 const DEFAULT_PAYMENTS = ["현금", "체크카드", "신용카드", "계좌이체"];
@@ -63,7 +43,15 @@ export default function Settings({ user }) {
 
       const cSnap = await get(ref(db, `users/${uid}/categories`));
       if (cSnap.val()) {
-        setCategories(Object.values(cSnap.val()));
+        const loaded = Object.values(cSnap.val());
+        // 구버전(3단계) 데이터를 2단계로 변환
+        const converted = loaded.map((big) => ({
+          name: big.name,
+          subs: (big.subs || []).map((mid) =>
+            typeof mid === "string" ? mid : mid.name
+          ),
+        }));
+        setCategories(converted);
       } else {
         setCategories(DEFAULT_CATEGORIES);
         const map = {};
@@ -135,31 +123,15 @@ export default function Settings({ user }) {
   const updateBig = (i, val) => {
     const c = [...categories]; c[i] = { ...c[i], name: val }; setCategories(c);
   };
-  const addMid = (bi) => {
-    const c = [...categories]; c[bi].subs = [...(c[bi].subs || []), { name: "", subs: [] }]; setCategories(c);
+  const addSub = (bi) => {
+    const c = [...categories]; c[bi].subs = [...(c[bi].subs || []), ""]; setCategories(c);
   };
-  const removeMid = (bi, mi) => {
-    const c = [...categories]; c[bi].subs = c[bi].subs.filter((_, idx) => idx !== mi); setCategories(c);
+  const removeSub = (bi, si) => {
+    const c = [...categories]; c[bi].subs = c[bi].subs.filter((_, idx) => idx !== si); setCategories(c);
   };
-  const updateMid = (bi, mi, val) => {
-    const c = [...categories]; c[bi].subs[mi] = { ...c[bi].subs[mi], name: val }; setCategories(c);
+  const updateSub = (bi, si, val) => {
+    const c = [...categories]; c[bi].subs[si] = val; setCategories(c);
   };
-  const addSmall = (bi, mi) => {
-    const c = [...categories]; c[bi].subs[mi].subs = [...(c[bi].subs[mi].subs || []), ""]; setCategories(c);
-  };
-  const removeSmall = (bi, mi, si) => {
-    const c = [...categories]; c[bi].subs[mi].subs = c[bi].subs[mi].subs.filter((_, idx) => idx !== si); setCategories(c);
-  };
-  const updateSmall = (bi, mi, si, val) => {
-    const c = [...categories]; c[bi].subs[mi].subs[si] = val; setCategories(c);
-  };
-
-  const catOptions = categories.flatMap((big) =>
-    (big.subs || []).flatMap((mid) =>
-      (mid.subs || []).map((small) => `${big.name} > ${mid.name} > ${small}`)
-        .concat([`${big.name} > ${mid.name}`])
-    ).concat([big.name])
-  );
 
   return (
     <div className="page">
@@ -187,8 +159,17 @@ export default function Settings({ user }) {
             {(template.budgets || []).map((b, i) => (
               <tr key={i}>
                 <td>
-                  <input list="tpl-cats" value={b.category} onChange={(e) => updateBudget(i, "category", e.target.value)} placeholder="카테고리" />
-                  <datalist id="tpl-cats">{catOptions.map((c) => <option key={c} value={c} />)}</datalist>
+                  <select value={b.category} onChange={(e) => updateBudget(i, "category", e.target.value)} style={{ width: "100%" }}>
+                    <option value="">카테고리 선택</option>
+                    {categories.map((big) => (
+                      <optgroup key={big.name} label={big.name}>
+                        <option value={big.name}>{big.name} (전체)</option>
+                        {(big.subs || []).map((sub) => (
+                          <option key={sub} value={`${big.name} > ${sub}`}>{sub}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <input
@@ -245,29 +226,18 @@ export default function Settings({ user }) {
               <input value={big.name} onChange={(e) => updateBig(bi, e.target.value)} placeholder="대카테고리" className="cat-input-big" />
               <button onClick={() => removeBig(bi)} className="btn-del">✕</button>
             </div>
-            {(big.subs || []).map((mid, mi) => (
-              <div key={mi} className="cat-edit-mid">
-                <div className="cat-row">
-                  <span className="indent">└</span>
-                  <input value={mid.name} onChange={(e) => updateMid(bi, mi, e.target.value)} placeholder="중카테고리" className="cat-input-mid" />
-                  <button onClick={() => removeMid(bi, mi)} className="btn-del">✕</button>
-                </div>
-                {(mid.subs || []).map((small, si) => (
-                  <div key={si} className="cat-row small">
-                    <span className="indent2">└─</span>
-                    <input value={small} onChange={(e) => updateSmall(bi, mi, si, e.target.value)} placeholder="소카테고리" className="cat-input-small" />
-                    <button onClick={() => removeSmall(bi, mi, si)} className="btn-del">✕</button>
-                  </div>
-                ))}
-                <button onClick={() => addSmall(bi, mi)} className="btn-add-small">+ 소카테고리</button>
+            {(big.subs || []).map((sub, si) => (
+              <div key={si} className="cat-row" style={{ marginLeft: 16 }}>
+                <span className="indent">└</span>
+                <input value={sub} onChange={(e) => updateSub(bi, si, e.target.value)} placeholder="하위카테고리" className="cat-input-mid" />
+                <button onClick={() => removeSub(bi, si)} className="btn-del">✕</button>
               </div>
             ))}
-            <button onClick={() => addMid(bi)} className="btn-add-mid">+ 중카테고리</button>
+            <button onClick={() => addSub(bi)} className="btn-add-mid">+ 하위카테고리 추가</button>
           </div>
         ))}
         <button onClick={addBig} className="btn-add">+ 대카테고리 추가</button>
       </div>
-
     </div>
   );
 }

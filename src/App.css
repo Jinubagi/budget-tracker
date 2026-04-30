@@ -134,3 +134,31 @@ label input { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; fon
 /* 월급 기간 */
 .month-wrap { display: flex; align-items: center; gap: 8px; }
 .period-label { font-size: 0.8rem; color: #888; white-space: nowrap; }
+
+/* 입력 모드 탭 */
+.input-mode-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.mode-tab { flex: 1; padding: 10px; border: 2px solid #eee; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.9rem; color: #888; }
+.mode-tab.active { border-color: #2196F3; color: #2196F3; font-weight: 600; }
+
+/* 카테고리 드롭다운 */
+.cat-select-wrap { display: flex; flex-direction: column; gap: 6px; }
+.cat-select { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 0.9rem; width: 100%; }
+
+/* 여러개 입력 */
+.multi-table-wrap { overflow-x: auto; margin-bottom: 12px; }
+.multi-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.multi-table th { font-size: 0.8rem; color: #888; padding: 6px 4px; border-bottom: 2px solid #eee; }
+.multi-table td { padding: 4px; border-bottom: 1px solid #f0f0f0; }
+.multi-table td input, .multi-table td select { width: 100%; border: 1px solid #eee; border-radius: 6px; padding: 5px 6px; font-size: 0.85rem; }
+.multi-btns { display: flex; justify-content: space-between; align-items: center; }
+
+/* AI 인식 */
+.ai-result-item { background: #f9f9f9; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.ai-result-info { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.9rem; }
+.btn-outline.full { width: 100%; padding: 12px; }
+
+/* 필터 */
+.filter-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.filter-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; font-size: 0.82rem; color: #888; }
+.filter-btn.active { background: #2196F3; color: #fff; border-color: #2196F3; }
+.pct-badge { font-size: 0.78rem; font-weight: 600; }

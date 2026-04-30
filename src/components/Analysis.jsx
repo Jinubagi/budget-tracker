@@ -18,6 +18,7 @@ export default function Analysis({ user, month, period }) {
   const uid = user.uid;
   const [allExpenses, setAllExpenses] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [filterCat, setFilterCat] = useState("전체");
 
   useEffect(() => {
     const load = async () => {
@@ -26,12 +27,10 @@ export default function Analysis({ user, month, period }) {
 
       const eSnap = await get(ref(db, `users/${uid}/expenses/${month}`));
       const nextSnap = await get(ref(db, `users/${uid}/expenses/${nextMonth}`));
-
-      const all = [
+      setAllExpenses([
         ...Object.values(eSnap.val() || {}),
         ...Object.values(nextSnap.val() || {}),
-      ];
-      setAllExpenses(all);
+      ]);
 
       const bSnap = await get(ref(db, `users/${uid}/budgets/${month}`));
       setBudgets(Object.values(bSnap.val() || {}));
@@ -41,24 +40,33 @@ export default function Analysis({ user, month, period }) {
 
   const fmt = (n) => n.toLocaleString("ko-KR") + "원";
 
-  // 월급 기간 필터
   const expenses = allExpenses.filter((e) => inPeriod(e.date, period));
-
   const spendingList = expenses.filter((e) => !isSaving(e.category));
   const savingList = expenses.filter((e) => isSaving(e.category));
 
+  // 대카테고리 목록
+  const bigCats = ["전체", ...new Set(spendingList.map((e) => (e.category || "기타").split(">")[0].trim()))];
+
+  // 필터 적용된 지출
+  const filteredSpending = filterCat === "전체"
+    ? spendingList
+    : spendingList.filter((e) => (e.category || "").startsWith(filterCat));
+
+  // 카테고리별 집계
   const catMap = {};
-  spendingList.forEach((e) => {
+  filteredSpending.forEach((e) => {
     catMap[e.category] = (catMap[e.category] || 0) + e.amount;
   });
 
+  // 저축 집계
   const savingMap = {};
   savingList.forEach((e) => {
     savingMap[e.category] = (savingMap[e.category] || 0) + e.amount;
   });
 
+  // 결제수단별 집계
   const payMap = {};
-  spendingList.forEach((e) => {
+  filteredSpending.forEach((e) => {
     const key = e.payment || "미분류";
     payMap[key] = (payMap[key] || 0) + e.amount;
   });
@@ -66,18 +74,21 @@ export default function Analysis({ user, month, period }) {
   const pieData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
   const savingPieData = Object.entries(savingMap).map(([name, value]) => ({ name, value }));
   const payPieData = Object.entries(payMap).map(([name, value]) => ({ name, value }));
-  const barData = budgets.filter((b) => !isSaving(b.category)).map((b) => ({
-    name: b.category,
+
+  const barData = budgets.filter((b) => !isSaving(b.category) && (filterCat === "전체" || b.category.startsWith(filterCat))).map((b) => ({
+    name: b.category.length > 8 ? b.category.slice(0, 8) + "…" : b.category,
+    fullName: b.category,
     예산: b.amount,
     지출: catMap[b.category] || 0,
   }));
+
   const savingBarData = budgets.filter((b) => isSaving(b.category)).map((b) => ({
     name: b.category,
     목표: b.amount,
     저축: savingMap[b.category] || 0,
   }));
 
-  const totalSpending = spendingList.reduce((s, e) => s + e.amount, 0);
+  const totalSpending = filteredSpending.reduce((s, e) => s + e.amount, 0);
   const totalSaving = savingList.reduce((s, e) => s + e.amount, 0);
 
   return (
@@ -88,6 +99,7 @@ export default function Analysis({ user, month, period }) {
         <p className="empty">분석할 데이터가 없어요</p>
       ) : (
         <>
+          {/* 요약 */}
           <div className="card-grid" style={{ marginBottom: 16 }}>
             <div className="summary-card" style={{ borderTop: "4px solid #F44336" }}>
               <div className="card-label">총 지출</div>
@@ -99,39 +111,49 @@ export default function Analysis({ user, month, period }) {
             </div>
           </div>
 
-          {pieData.length > 0 && (
-            <>
-              <div className="card">
-                <h3>💸 카테고리별 지출 비율</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                      {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v) => fmt(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+          {/* 필터 */}
+          <div className="filter-wrap">
+            {bigCats.map((cat) => (
+              <button key={cat} onClick={() => setFilterCat(cat)} className={`filter-btn ${filterCat === cat ? "active" : ""}`}>
+                {cat}
+              </button>
+            ))}
+          </div>
 
-              {barData.length > 0 && (
-                <div className="card">
-                  <h3>💸 예산 vs 실제 지출</h3>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={barData}>
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tickFormatter={(v) => (v / 10000) + "만"} />
-                      <Tooltip formatter={(v) => fmt(v)} />
-                      <Legend />
-                      <Bar dataKey="예산" fill="#2196F3" />
-                      <Bar dataKey="지출" fill="#F44336" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </>
+          {/* 카테고리별 지출 비율 */}
+          {pieData.length > 0 && (
+            <div className="card">
+              <h3>💸 카테고리별 지출 비율</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
+                    label={({ name, percent }) => `${name.split(">").pop().trim()} ${(percent * 100).toFixed(0)}%`}>
+                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           )}
 
+          {/* 예산 vs 지출 */}
+          {barData.length > 0 && (
+            <div className="card">
+              <h3>💸 예산 vs 실제 지출</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={barData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => (v / 10000) + "만"} />
+                  <Tooltip formatter={(v) => fmt(v)} labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ""} />
+                  <Legend />
+                  <Bar dataKey="예산" fill="#2196F3" />
+                  <Bar dataKey="지출" fill="#F44336" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* 결제수단별 */}
           {payPieData.length > 0 && (
             <div className="card">
               <h3>💳 결제수단별 지출</h3>
@@ -156,6 +178,7 @@ export default function Analysis({ user, month, period }) {
             </div>
           )}
 
+          {/* 저축 현황 */}
           {savingPieData.length > 0 && (
             <>
               <div className="card">
@@ -163,7 +186,7 @@ export default function Analysis({ user, month, period }) {
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>
                     <Pie data={savingPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      label={({ name, percent }) => `${name.split(">").pop().trim()} ${(percent * 100).toFixed(0)}%`}>
                       {savingPieData.map((_, i) => <Cell key={i} fill={["#9C27B0","#CE93D8","#7B1FA2","#E1BEE7"][i % 4]} />)}
                     </Pie>
                     <Tooltip formatter={(v) => fmt(v)} />
@@ -189,11 +212,12 @@ export default function Analysis({ user, month, period }) {
             </>
           )}
 
+          {/* 카테고리 상세표 */}
           <div className="card">
             <h3>카테고리 상세</h3>
             <table className="analysis-table">
               <thead>
-                <tr><th>카테고리</th><th>금액</th><th>예산/목표</th><th>잔액</th></tr>
+                <tr><th>카테고리</th><th>지출</th><th>예산/목표</th><th>잔액</th></tr>
               </thead>
               <tbody>
                 {Object.entries({ ...catMap, ...savingMap }).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => {
