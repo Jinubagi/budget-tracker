@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, get, push, remove } from "firebase/database";
+import { ref, get, push, remove, update } from "firebase/database";
 import { db } from "../firebase";
 import { inPeriod } from "../utils";
 
@@ -18,15 +18,13 @@ export default function Expense({ user, month, period }) {
   const [inputMode, setInputMode] = useState("quick");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [editItem, setEditItem] = useState(null);
   const fileRef = useRef();
 
   const today = new Date().toISOString().slice(0, 10);
-  const [qDate, setQDate] = useState(today);
-  const [qBig, setQBig] = useState("");
-  const [qSub, setQSub] = useState("");
-  const [qPay, setQPay] = useState("");
-  const [qMemo, setQMemo] = useState("");
+  const [selectedCat, setSelectedCat] = useState(null);
   const [qAmt, setQAmt] = useState("");
+  const amtRef = useRef();
 
   const [rows, setRows] = useState([{ date: today, bigCat: "", subCat: "", payment: "", memo: "", amount: "" }]);
 
@@ -56,26 +54,64 @@ export default function Expense({ user, month, period }) {
 
   useEffect(() => { load(); }, [uid, month]);
 
-  const toCategory = (big, sub) => sub ? `${big} > ${sub}` : big;
   const fmt = (n) => Number(n).toLocaleString("ko-KR");
   const handleAmt = (val) => {
     const raw = val.replace(/,/g, "").replace(/[^0-9]/g, "");
     return raw ? Number(raw).toLocaleString("ko-KR") : "";
   };
-
   const getSubs = (bigName) => {
     const found = categories.find((c) => c.name === bigName);
     return (found?.subs || []).map((s) => typeof s === "string" ? s : s.name);
   };
 
-  const submitQuick = async () => {
+  const expenses = allExpenses.filter((e) => inPeriod(e.date, period));
+
+  const bigSpentMap = {};
+  expenses.forEach((e) => {
+    const big = (e.category || "기타").split(">")[0].trim();
+    bigSpentMap[big] = (bigSpentMap[big] || 0) + e.amount;
+  });
+  const bigBudgetMap = {};
+  budgets.forEach((b) => {
+    const big = (b.category || "").split(">")[0].trim();
+    bigBudgetMap[big] = (bigBudgetMap[big] || 0) + b.amount;
+  });
+
+  const handleCatClick = (cat) => {
+    setSelectedCat(cat);
+    setQAmt("");
+    setTimeout(() => amtRef.current?.focus(), 100);
+  };
+
+  const handlePayClick = async (pay) => {
     const amt = Number(qAmt.replace(/,/g, ""));
-    if (!amt || !qBig) return alert("카테고리와 금액을 입력하세요");
-    const expMonth = qDate.slice(0, 7);
-    await push(ref(db, `users/${uid}/expenses/${expMonth}`), {
-      date: qDate, category: toCategory(qBig, qSub), payment: qPay, memo: qMemo, amount: amt,
+    if (!amt || !selectedCat) return;
+    await push(ref(db, `users/${uid}/expenses/${today.slice(0, 7)}`), {
+      date: today, category: selectedCat.name, payment: pay, memo: "", amount: amt,
     });
-    setQBig(""); setQSub(""); setQPay(""); setQMemo(""); setQAmt("");
+    setSelectedCat(null);
+    setQAmt("");
+    load();
+  };
+
+  const del = async (key, expMonth) => {
+    if (!window.confirm("삭제할까요?")) return;
+    await remove(ref(db, `users/${uid}/expenses/${expMonth}/${key}`));
+    load();
+  };
+
+  const saveEdit = async () => {
+    if (!editItem) return;
+    const amt = Number(String(editItem.amount).replace(/,/g, ""));
+    if (!amt || !editItem.category) return alert("카테고리와 금액을 입력하세요");
+    await update(ref(db, `users/${uid}/expenses/${editItem._month}/${editItem._key}`), {
+      date: editItem.date,
+      category: editItem.category,
+      payment: editItem.payment,
+      memo: editItem.memo,
+      amount: amt,
+    });
+    setEditItem(null);
     load();
   };
 
@@ -84,26 +120,14 @@ export default function Expense({ user, month, period }) {
     if (!valid.length) return alert("최소 1개 이상 입력하세요");
     await Promise.all(valid.map((row) => {
       const amt = Number(String(row.amount).replace(/,/g, ""));
+      const cat = row.subCat ? `${row.bigCat} > ${row.subCat}` : row.bigCat;
       return push(ref(db, `users/${uid}/expenses/${row.date.slice(0, 7)}`), {
-        date: row.date, category: toCategory(row.bigCat, row.subCat),
-        payment: row.payment, memo: row.memo, amount: amt,
+        date: row.date, category: cat, payment: row.payment, memo: row.memo, amount: amt,
       });
     }));
     setRows([{ date: today, bigCat: "", subCat: "", payment: "", memo: "", amount: "" }]);
     load();
   };
-
-  const del = async (key, expMonth) => {
-    await remove(ref(db, `users/${uid}/expenses/${expMonth}/${key}`));
-    load();
-  };
-
-  const expenses = allExpenses.filter((e) => inPeriod(e.date, period));
-  const spentMap = {};
-  expenses.forEach((e) => { spentMap[e.category] = (spentMap[e.category] || 0) + e.amount; });
-  const filteredExpenses = expenses.filter((e) => listTab === "저축" ? isSaving(e.category) : !isSaving(e.category));
-  const totalSpending = expenses.filter((e) => !isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
-  const totalSaving = expenses.filter((e) => isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
 
   const handleAiImage = async (e) => {
     const file = e.target.files[0];
@@ -140,13 +164,22 @@ export default function Expense({ user, month, period }) {
     if (!aiResult?.length) return;
     await Promise.all(aiResult.map((item) =>
       push(ref(db, `users/${uid}/expenses/${item.date.slice(0, 7)}`), {
-        date: item.date, category: item.bigCat ? toCategory(item.bigCat, item.subCat) : "기타",
+        date: item.date,
+        category: item.bigCat ? (item.subCat ? `${item.bigCat} > ${item.subCat}` : item.bigCat) : "기타",
         payment: "", memo: item.memo, amount: item.amount,
       })
     ));
     setAiResult(null);
     load();
   };
+
+  const filteredExpenses = expenses.filter((e) => listTab === "저축" ? isSaving(e.category) : !isSaving(e.category));
+  const totalSpending = expenses.filter((e) => !isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
+  const totalSaving = expenses.filter((e) => isSaving(e.category)).reduce((s, e) => s + e.amount, 0);
+
+  // 수정 모달용 대/하위 카테
+  const editBig = (editItem?.category || "").split(">")[0].trim();
+  const editSub = (editItem?.category || "").split(">")[1]?.trim() || "";
 
   return (
     <div className="page">
@@ -161,38 +194,50 @@ export default function Expense({ user, month, period }) {
       {/* 퀵 입력 */}
       {inputMode === "quick" && (
         <div className="card">
-          <div className="form-grid">
-            <label>날짜
-              <input type="date" value={qDate} onChange={(e) => setQDate(e.target.value)} />
-            </label>
-            <label>금액 (원)
-              <input type="text" value={qAmt} onChange={(e) => setQAmt(handleAmt(e.target.value))} onFocus={(e) => e.target.select()} placeholder="0" />
-            </label>
-            <label>대카테고리
-              <select value={qBig} onChange={(e) => { setQBig(e.target.value); setQSub(""); }} className="cat-select">
-                <option value="">선택</option>
-                {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
-            </label>
-            {qBig && getSubs(qBig).length > 0 && (
-              <label>하위카테고리
-                <select value={qSub} onChange={(e) => setQSub(e.target.value)} className="cat-select">
-                  <option value="">선택</option>
-                  {getSubs(qBig).map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </label>
-            )}
-            <label>결제수단
-              <select value={qPay} onChange={(e) => setQPay(e.target.value)} className="pay-select">
-                <option value="">선택 안 함</option>
-                {payments.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </label>
-            <label>메모
-              <input value={qMemo} onChange={(e) => setQMemo(e.target.value)} placeholder="메모 (선택)" />
-            </label>
+          <div className="quick-cat-grid">
+            {categories.map((cat) => {
+              const bud = bigBudgetMap[cat.name] || 0;
+              const spent = bigSpentMap[cat.name] || 0;
+              const remaining = bud - spent;
+              const over = bud > 0 && spent > bud;
+              return (
+                <button
+                  key={cat.name}
+                  onClick={() => handleCatClick(cat)}
+                  className={`quick-cat-btn ${selectedCat?.name === cat.name ? "active" : ""} ${over ? "over" : ""}`}
+                >
+                  <div className="qcat-name">{cat.name}</div>
+                  {bud > 0 && (
+                    <>
+                      <div className="qcat-budget">예산 {fmt(bud)}원</div>
+                      <div className={`qcat-remaining ${over ? "over" : ""}`}>잔액 {fmt(remaining)}원</div>
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          <button onClick={submitQuick} className="btn-primary full">추가</button>
+          {selectedCat && (
+            <div className="quick-input-area">
+              <div className="quick-selected-cat">📌 {selectedCat.name}</div>
+              <input
+                ref={amtRef}
+                type="text"
+                value={qAmt}
+                onChange={(e) => setQAmt(handleAmt(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                placeholder="금액 입력"
+                className="quick-amt-input"
+              />
+              {qAmt && (
+                <div className="quick-pay-btns">
+                  {payments.map((p) => (
+                    <button key={p} onClick={() => handlePayClick(p)} className="quick-pay-btn">{p}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -291,13 +336,66 @@ export default function Expense({ user, month, period }) {
         </button>
       </div>
 
+      {/* 수정 모달 */}
+      {editItem && (
+        <div className="modal-overlay" onClick={() => setEditItem(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>지출 수정</h3>
+            <div className="form-grid">
+              <label>날짜
+                <input type="date" value={editItem.date} onChange={(e) => setEditItem({ ...editItem, date: e.target.value })} />
+              </label>
+              <label>금액 (원)
+                <input type="text" value={fmt(editItem.amount)} onChange={(e) => setEditItem({ ...editItem, amount: Number(e.target.value.replace(/,/g, "")) })} onFocus={(e) => e.target.select()} />
+              </label>
+              <label>대카테고리
+                <select
+                  value={editBig}
+                  onChange={(e) => setEditItem({ ...editItem, category: e.target.value })}
+                  className="cat-select"
+                >
+                  <option value="">선택</option>
+                  {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
+                </select>
+              </label>
+              {editBig && getSubs(editBig).length > 0 && (
+                <label>하위카테고리
+                  <select
+                    value={editSub}
+                    onChange={(e) => setEditItem({ ...editItem, category: e.target.value ? `${editBig} > ${e.target.value}` : editBig })}
+                    className="cat-select"
+                  >
+                    <option value="">선택 안 함</option>
+                    {getSubs(editBig).map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </label>
+              )}
+              <label>결제수단
+                <select value={editItem.payment || ""} onChange={(e) => setEditItem({ ...editItem, payment: e.target.value })} className="pay-select">
+                  <option value="">선택 안 함</option>
+                  {payments.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </label>
+              <label>메모
+                <input value={editItem.memo || ""} onChange={(e) => setEditItem({ ...editItem, memo: e.target.value })} placeholder="메모" />
+              </label>
+            </div>
+            <div className="modal-btns">
+              <button onClick={() => setEditItem(null)} className="btn-outline">취소</button>
+              <button onClick={saveEdit} className="btn-primary">저장</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filteredExpenses.length === 0 ? (
         <p className="empty">{listTab === "저축" ? "이번 기간 저축 내역이 없어요" : "이번 기간 지출 내역이 없어요"}</p>
       ) : (
         <div className="expense-list">
           {filteredExpenses.map((e) => {
-            const bud = budgets.find((b) => b.category === e.category)?.amount;
-            const spent = spentMap[e.category] || 0;
+            const big = (e.category || "").split(">")[0].trim();
+            const bud = bigBudgetMap[big] || 0;
+            const spent = bigSpentMap[big] || 0;
             const saving = isSaving(e.category);
             return (
               <div key={e._key} className="expense-item">
@@ -315,11 +413,12 @@ export default function Expense({ user, month, period }) {
                   <span className="exp-amount" style={{ color: saving ? "#9C27B0" : "#F44336" }}>
                     {saving ? "+" : "-"}{fmt(e.amount)}원
                   </span>
-                  {bud && !saving && (
+                  {bud > 0 && !saving && (
                     <span className={`exp-remaining ${spent > bud ? "over" : ""}`}>
                       잔액 {fmt(bud - spent)}원
                     </span>
                   )}
+                  <button onClick={() => setEditItem(e)} className="btn-edit">✏️</button>
                   <button onClick={() => del(e._key, e._month)} className="btn-del">✕</button>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import Budget from "./Budget";
 import Expense from "./Expense";
 import Analysis from "./Analysis";
 import Settings from "./Settings";
-import { getPayPeriod } from "../utils";
+import { getPayday, getPayPeriod } from "../utils";
 
 const TABS = [
   { id: "dashboard", label: "대시보드", icon: "📊" },
@@ -14,12 +14,27 @@ const TABS = [
   { id: "settings", label: "설정", icon: "⚙️" },
 ];
 
+function getDefaultMonth() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+
+  // 이번 달 월급일
+  const payday = getPayday(y, m);
+
+  // 오늘이 월급일 이전이면 이전 달이 현재 기간
+  if (d < payday.getDate()) {
+    const prevM = m === 1 ? 12 : m - 1;
+    const prevY = m === 1 ? y - 1 : y;
+    return `${prevY}-${String(prevM).padStart(2, "0")}`;
+  }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
 export default function Layout({ user, onLogout }) {
   const [tab, setTab] = useState("dashboard");
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [month, setMonth] = useState(getDefaultMonth);
 
   const period = getPayPeriod(month);
 

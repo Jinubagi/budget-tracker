@@ -22,7 +22,6 @@ export default function Dashboard({ user, month, period }) {
 
       const [y, m] = month.split("-").map(Number);
       const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
-
       const expSnap = await get(ref(db, `users/${uid}/expenses/${month}`));
       const nextExpSnap = await get(ref(db, `users/${uid}/expenses/${nextMonth}`));
       setAllExpenses([
@@ -42,19 +41,11 @@ export default function Dashboard({ user, month, period }) {
   const savingExpenses = expenses.filter((e) => isSaving(e.category));
   const spendingExpenses = expenses.filter((e) => !isSaving(e.category));
 
-  const totalSavingBudget = budgets.filter((b) => isSaving(b.category)).reduce((s, b) => s + (b.amount || 0), 0);
-  const totalSpendingBudget = budgets.filter((b) => !isSaving(b.category)).reduce((s, b) => s + (b.amount || 0), 0);
-  const totalSaving = savingExpenses.reduce((s, e) => s + e.amount, 0);
-  const totalExpense = spendingExpenses.reduce((s, e) => s + e.amount, 0);
-  const totalRemaining = totalSpendingBudget - totalExpense;
-
-  const fmt = (n) => n.toLocaleString("ko-KR") + "원";
-
-  // 대카테고리별 집계
-  const bigCatMap = {};
+  // 대카테고리별 지출 집계
+  const bigSpentMap = {};
   spendingExpenses.forEach((e) => {
     const big = (e.category || "기타").split(">")[0].trim();
-    bigCatMap[big] = (bigCatMap[big] || 0) + e.amount;
+    bigSpentMap[big] = (bigSpentMap[big] || 0) + e.amount;
   });
 
   // 대카테고리별 예산 집계
@@ -64,19 +55,13 @@ export default function Dashboard({ user, month, period }) {
     bigBudgetMap[big] = (bigBudgetMap[big] || 0) + b.amount;
   });
 
-  // 세부 카테고리별 집계 (필터용)
-  const catMap = {};
-  spendingExpenses.forEach((e) => {
-    catMap[e.category] = (catMap[e.category] || 0) + e.amount;
-  });
+  const totalSpendingBudget = Object.values(bigBudgetMap).reduce((s, v) => s + v, 0);
+  const totalSavingBudget = budgets.filter((b) => isSaving(b.category)).reduce((s, b) => s + b.amount, 0);
+  const totalExpense = spendingExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalSaving = savingExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalRemaining = totalSpendingBudget - totalExpense;
 
-  // 필터 적용
-  const filteredEntries = filterCat === "전체"
-    ? Object.entries(bigCatMap)
-    : Object.entries(catMap).filter(([cat]) => cat.startsWith(filterCat));
-
-  // 필터 옵션 (대카테고리)
-  const bigCats = ["전체", ...Object.keys(bigCatMap)];
+  const fmt = (n) => n.toLocaleString("ko-KR") + "원";
 
   const cards = [
     { label: "이번 달 월급", value: salary, color: "#4CAF50" },
@@ -86,6 +71,14 @@ export default function Dashboard({ user, month, period }) {
     { label: "저축 목표", value: totalSavingBudget, color: "#9C27B0" },
     { label: "이번 달 저축", value: totalSaving, color: "#00BCD4" },
   ];
+
+  // 필터 옵션
+  const bigCats = ["전체", ...Object.keys(bigSpentMap)];
+
+  // 필터 적용된 대카테고리 목록
+  const displayCats = filterCat === "전체"
+    ? Object.keys({ ...bigBudgetMap, ...bigSpentMap })
+    : [filterCat];
 
   return (
     <div className="page">
@@ -101,7 +94,7 @@ export default function Dashboard({ user, month, period }) {
         ))}
       </div>
 
-      {/* 전체 예산 대비 진행바 */}
+      {/* 전체 예산 진행바 */}
       {totalSpendingBudget > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="cat-header" style={{ marginBottom: 6 }}>
@@ -120,7 +113,7 @@ export default function Dashboard({ user, month, period }) {
         </div>
       )}
 
-      {/* 카테고리 필터 */}
+      {/* 필터 */}
       <div className="filter-wrap">
         {bigCats.map((cat) => (
           <button key={cat} onClick={() => setFilterCat(cat)} className={`filter-btn ${filterCat === cat ? "active" : ""}`}>
@@ -129,34 +122,47 @@ export default function Dashboard({ user, month, period }) {
         ))}
       </div>
 
-      {/* 카테고리별 지출 */}
-      <h3>카테고리별 지출</h3>
-      {filteredEntries.length === 0 ? (
+      {/* 대카테고리별 지출 */}
+      <h3>카테고리별 현황</h3>
+      {displayCats.length === 0 ? (
         <p className="empty">이번 기간 지출 내역이 없어요</p>
       ) : (
         <div className="cat-list">
-          {filteredEntries.sort((a, b) => b[1] - a[1]).map(([cat, amt]) => {
-            const bud = filterCat === "전체" ? (bigBudgetMap[cat] || 0) : (budgets.find((b) => b.category === cat)?.amount || 0);
-            const pct = bud ? Math.min((amt / bud) * 100, 100) : 100;
-            const over = bud && amt > bud;
-            const pctLabel = bud ? `${((amt / bud) * 100).toFixed(1)}%` : "";
+          {displayCats.map((cat) => {
+            const bud = bigBudgetMap[cat] || 0;
+            const spent = bigSpentMap[cat] || 0;
+            const remaining = bud - spent;
+            const pct = bud ? Math.min((spent / bud) * 100, 100) : 100;
+            const over = bud > 0 && spent > bud;
             return (
               <div key={cat} className="cat-item">
                 <div className="cat-header">
-                  <span>{cat}</span>
+                  <span style={{ fontWeight: 600 }}>{cat}</span>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {pctLabel && <span className="pct-badge" style={{ color: over ? "#F44336" : "#888" }}>{pctLabel}</span>}
-                    <span className={over ? "over" : ""}>{fmt(amt)}{bud ? ` / ${fmt(bud)}` : ""}</span>
+                    {bud > 0 && (
+                      <span className="pct-badge" style={{ color: over ? "#F44336" : "#888" }}>
+                        {((spent / bud) * 100).toFixed(1)}%
+                      </span>
+                    )}
+                    <span className={over ? "over" : ""}>{fmt(spent)}{bud ? ` / ${fmt(bud)}` : ""}</span>
                   </div>
-                </div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${pct}%`, background: over ? "#F44336" : "#2196F3" }} />
                 </div>
                 {bud > 0 && (
-                  <div style={{ fontSize: "0.78rem", color: over ? "#F44336" : "#4CAF50", textAlign: "right", marginTop: 4 }}>
-                    잔여 {fmt(bud - amt)}
+                  <div className="progress-bar" style={{ marginBottom: 4 }}>
+                    <div className="progress-fill" style={{
+                      width: `${pct}%`,
+                      background: over ? "#F44336" : "#2196F3"
+                    }} />
                   </div>
                 )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginTop: 2 }}>
+                  <span style={{ color: "#888" }}>지출 {fmt(spent)}</span>
+                  {bud > 0 && (
+                    <span style={{ color: over ? "#F44336" : "#4CAF50", fontWeight: 600 }}>
+                      잔액 {fmt(remaining)}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -170,24 +176,28 @@ export default function Dashboard({ user, month, period }) {
           <div className="cat-list">
             {Object.entries(
               savingExpenses.reduce((acc, e) => {
-                acc[e.category] = (acc[e.category] || 0) + e.amount;
+                const big = (e.category || "").split(">")[0].trim();
+                acc[big] = (acc[big] || 0) + e.amount;
                 return acc;
               }, {})
             ).map(([cat, amt]) => {
-              const bud = budgets.find((b) => b.category === cat)?.amount || 0;
+              const bud = budgets.filter((b) => (b.category || "").split(">")[0].trim() === cat)
+                .reduce((s, b) => s + b.amount, 0);
               const pct = bud ? Math.min((amt / bud) * 100, 100) : 100;
               return (
                 <div key={cat} className="cat-item">
                   <div className="cat-header">
-                    <span>{cat}</span>
+                    <span style={{ fontWeight: 600 }}>{cat}</span>
                     <span>{fmt(amt)}{bud ? ` / ${fmt(bud)}` : ""}</span>
                   </div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${pct}%`, background: "#9C27B0" }} />
-                  </div>
+                  {bud > 0 && (
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${pct}%`, background: "#9C27B0" }} />
+                    </div>
+                  )}
                   {bud > 0 && (
                     <div style={{ fontSize: "0.78rem", color: "#9C27B0", textAlign: "right", marginTop: 4 }}>
-                      잔여 {fmt(bud - amt)}
+                      잔액 {fmt(bud - amt)}
                     </div>
                   )}
                 </div>
